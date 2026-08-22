@@ -2,8 +2,8 @@
 
 **Live demo:** coming soon (deployment in progress)
 
-Finding out which companies actually sponsor H-1B visas — and at what wage, for
-which roles — means digging through the Department of Labor's raw quarterly
+Finding out which companies actually sponsor H-1B visas - and at what wage, for
+which roles - means digging through the Department of Labor's raw quarterly
 disclosure spreadsheets by hand. This tool does that digging for you: search
 1.5M+ real H-1B filings by job title, company, or location, see a company's
 sponsorship history and typical pay by seniority level, or look up wage
@@ -13,14 +13,14 @@ percentiles for a role across the whole country.
 
 ## What it does
 
-- **Search** — job title (semantic, so "data scientist" also finds "Data
+- **Search** - job title (semantic, so "data scientist" also finds "Data
   Scientist II" and "Senior Data Scientist"), company name, worksite location,
   and experience level, all combinable and updating live as you type.
-- **Company profiles** — a sponsor's total filing volume, wage ranges by role,
+- **Company profiles** - a sponsor's total filing volume, wage ranges by role,
   an experience-level breakdown (mostly entry-level hires vs. mostly senior
   ones is a very different signal), filing volume over time, and top worksite
   locations.
-- **Role explorer** — wage percentiles for a standardized occupation (SOC
+- **Role explorer** - wage percentiles for a standardized occupation (SOC
   code) across companies and states, broken out by experience level so an
   entry-level and a senior filing for the "same" role aren't blended together.
 
@@ -41,14 +41,14 @@ the ETL keeps only the most recent record per case number, based on decision
 date.
 
 **Employer-name normalization.** The same company shows up under dozens of
-spellings across filings — "Tesla, Inc." and "TESLA, INC." are both in the
-raw data, for instance. Rather than fuzzy-matching names — which
-risks merging two different companies that happen to have similar names — the
+spellings across filings - "Tesla, Inc." and "TESLA, INC." are both in the
+raw data, for instance. Rather than fuzzy-matching names - which
+risks merging two different companies that happen to have similar names - the
 pipeline groups by the employer's federal tax ID (EIN), which is present on
 essentially every filing and is a deterministic identifier. Fuzzy matching
 (`rapidfuzz`) only kicks in as a fallback for the rare row with a missing or
 placeholder EIN (DOL's raw data contains filer errors like `12-3456789` used
-as a dummy value by multiple unrelated companies — the pipeline specifically
+as a dummy value by multiple unrelated companies - the pipeline specifically
 detects and excludes these instead of treating them as one shared employer).
 
 **Local semantic search.** Job-title search uses `sentence-transformers`
@@ -57,7 +57,7 @@ build time, stored in Postgres via `pgvector`. At query time, the same model
 runs in-process in the Next.js API route (via `@huggingface/transformers`,
 an ONNX build of the same model) to embed the search text and find the
 nearest titles by cosine similarity. No external API calls, no per-request
-cost — the whole search stack is a local database and a small local model.
+cost - the whole search stack is a local database and a small local model.
 
 ## Setup
 
@@ -106,7 +106,7 @@ Set `DATABASE_URL` in `web/.env.local` if it's not the default
 
 ## Notes on the data
 
-- Public government data — no license restrictions, no API key, no cost.
+- Public government data - no license restrictions, no API key, no cost.
 - Percentile-based wage ranges (25th–75th, not min/max) are used everywhere
   in the UI, since a handful of rows in the raw DOL data have obvious
   data-entry errors (e.g. a wage that annualizes to hundreds of millions of
