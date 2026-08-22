@@ -1,0 +1,11 @@
+# Python
+etl/__pycache__/
+etl/*.pyc
+etl/.venv/
+
+# OS
+.DS_Store
+
+# Editors
+.vscode/
+.idea/
