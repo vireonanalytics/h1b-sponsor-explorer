@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { PW_LEVELS } from "@/lib/wageLevels";
 
 type SearchResult = {
@@ -24,16 +25,27 @@ type SearchResponse = {
   totalPages: number;
 };
 
+const DEFAULT_SORT = "filing_count";
+
 const money = (v: string | null) =>
   v == null ? "—" : `$${Math.round(Number(v)).toLocaleString()}`;
 
-export default function SearchPage() {
-  const [jobTitle, setJobTitle] = useState("");
-  const [company, setCompany] = useState("");
-  const [location, setLocation] = useState("");
-  const [pwLevels, setPwLevels] = useState<string[]>([]);
-  const [sort, setSort] = useState("filing_count");
-  const [page, setPage] = useState(1);
+function SearchPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Hydrate initial state from the URL so a reload (or a shared/bookmarked
+  // link) restores the exact same search instead of resetting to blank.
+  const [jobTitle, setJobTitle] = useState(() => searchParams.get("jobTitle") ?? "");
+  const [company, setCompany] = useState(() => searchParams.get("company") ?? "");
+  const [location, setLocation] = useState(() => searchParams.get("location") ?? "");
+  const [pwLevels, setPwLevels] = useState<string[]>(() => {
+    const raw = searchParams.get("pwLevel");
+    return raw ? raw.split(",").filter(Boolean) : [];
+  });
+  const [sort, setSort] = useState(() => searchParams.get("sort") ?? DEFAULT_SORT);
+  const [page, setPage] = useState(() => Number(searchParams.get("page") ?? 1) || 1);
   const [data, setData] = useState<SearchResponse | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -68,11 +80,37 @@ export default function SearchPage() {
     [jobTitle, company, location, pwLevels, sort]
   );
 
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Auto-search whenever a filter changes, debounced so typing doesn't fire a
-  // request (and a semantic-search embedding call) on every keystroke.
+  // Keep the URL's query string in sync with the current filters/page, so
+  // reloading, going back, or sharing the link reproduces this exact search.
   useEffect(() => {
+    const params = new URLSearchParams();
+    if (jobTitle) params.set("jobTitle", jobTitle);
+    if (company) params.set("company", company);
+    if (location) params.set("location", location);
+    if (pwLevels.length > 0) params.set("pwLevel", pwLevels.join(","));
+    if (sort !== DEFAULT_SORT) params.set("sort", sort);
+    if (page > 1) params.set("page", String(page));
+    const qs = params.toString();
+    router.replace(qs ? `${pathname}?${qs}` : pathname, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [jobTitle, company, location, pwLevels, sort, page]);
+
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const didMountRef = useRef(false);
+
+  // On mount: run the search once with whatever page/filters came from the
+  // URL (no debounce, no forcing back to page 1). After that, auto-search
+  // whenever a filter changes, debounced so typing doesn't fire a request
+  // (and a semantic-search embedding call) on every keystroke, and reset to
+  // page 1 since the previous page number no longer applies to a new filter.
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      if (jobTitle || company || location || pwLevels.length > 0) {
+        runSearch(page);
+      }
+      return;
+    }
     if (debounceRef.current) clearTimeout(debounceRef.current);
     debounceRef.current = setTimeout(() => {
       setPage(1);
@@ -249,5 +287,13 @@ export default function SearchPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function SearchPage() {
+  return (
+    <Suspense fallback={null}>
+      <SearchPageInner />
+    </Suspense>
   );
 }

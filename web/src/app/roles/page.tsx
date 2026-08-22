@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { pwLevelLabel } from "@/lib/wageLevels";
 
 type RoleOption = { soc_code: string; soc_title: string; filing_count: number };
@@ -22,10 +23,16 @@ type RoleStats = {
 
 const money = (v: string | null) => (v == null ? "—" : `$${Math.round(Number(v)).toLocaleString()}`);
 
-export default function RolesPage() {
+function RolesPageInner() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
   const [q, setQ] = useState("");
   const [options, setOptions] = useState<RoleOption[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  // Hydrate the selected role from the URL so a reload (or a shared link)
+  // returns to the same role instead of resetting to the picker.
+  const [selected, setSelected] = useState<string | null>(() => searchParams.get("role"));
   const [stats, setStats] = useState<RoleStats | null>(null);
 
   useEffect(() => {
@@ -38,10 +45,16 @@ export default function RolesPage() {
   }, [q]);
 
   useEffect(() => {
-    if (!selected) return;
+    const qs = selected ? `?role=${encodeURIComponent(selected)}` : "";
+    router.replace(`${pathname}${qs}`, { scroll: false });
+    if (!selected) {
+      setStats(null);
+      return;
+    }
     fetch(`/api/roles/${encodeURIComponent(selected)}`)
       .then((r) => r.json())
       .then(setStats);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
   return (
@@ -170,5 +183,13 @@ export default function RolesPage() {
         </>
       )}
     </div>
+  );
+}
+
+export default function RolesPage() {
+  return (
+    <Suspense fallback={null}>
+      <RolesPageInner />
+    </Suspense>
   );
 }
